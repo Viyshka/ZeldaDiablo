@@ -1,0 +1,14 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.7",
+	"Category": "Games",
+	"Description": "Top-down C++ combat prototype.",
+	"Modules": [
+		{
+			"Name": "ZeldaDiablo",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
+
