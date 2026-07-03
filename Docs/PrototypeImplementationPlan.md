@@ -15,7 +15,7 @@ This file converts the current design documents into the first C++ vertical slic
 - Player states: idle, moving, attacking, blocking, counterattacking, hurt, dead.
 - Enemy states: idle, chasing, windup, attacking, hurt, dead.
 - All key tuning values exposed as `UPROPERTY(EditAnywhere, BlueprintReadWrite)`.
-- Input mappings: WASD, left mouse attack, right mouse block.
+- Input mappings: gamepad left stick movement, right stick facing, X attack, LT block.
 - Basic combat cone checks for attack, block and counterattack.
 
 ## Next likely work
@@ -25,4 +25,3 @@ This file converts the current design documents into the first C++ vertical slic
 - Add UI for player health and enemy counter-readability.
 - Add real map asset once the first C++ loop is stable.
 - Tune room size, attack radius, block angle and enemy timings in editor.
-

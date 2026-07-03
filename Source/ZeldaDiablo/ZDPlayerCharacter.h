@@ -6,6 +6,8 @@
 #include "ZDPlayerCharacter.generated.h"
 
 class AZDBasicEnemy;
+class UAnimSequence;
+class USkeletalMesh;
 class UStaticMeshComponent;
 class UZDHealthComponent;
 
@@ -26,6 +28,36 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UStaticMeshComponent* PrototypeMesh = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals")
+	USkeletalMesh* CharacterMeshAsset = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* IdleAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* MovementAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* BasicAttackAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* BlockAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* CounterAttackAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* HurtAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* DeathAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation", meta = (ClampMin = "0.0"))
+	float IdlePoseTime = 0.08f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation", meta = (ClampMin = "0.0"))
+	float BlockPoseTime = 0.28f;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	EZDPlayerCombatState CombatState = EZDPlayerCombatState::Idle;
 
@@ -38,6 +70,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	bool bCanMoveWhileBlocking = true;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float InputDeadZone = 0.15f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
 	float BasicAttackDamage = 1.0f;
 
@@ -49,6 +84,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
 	float BasicAttackDuration = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
+	float BasicAttackHitDelay = 0.16f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
 	float BasicAttackRecovery = 0.12f;
@@ -85,6 +123,8 @@ protected:
 
 	void MoveForward(float Value);
 	void MoveRight(float Value);
+	void LookForward(float Value);
+	void LookRight(float Value);
 	void HandleAttackPressed();
 	void HandleAttackReleased();
 	void HandleBlockPressed();
@@ -103,18 +143,28 @@ protected:
 	bool IsDamageBlockedFrom(const FVector& DamageSourceLocation) const;
 	void EnterHurtState();
 	void FinishHurtState();
+	void ConfigureVisuals();
+	bool HasDirectionalInput(const FVector& Input) const;
+	void UpdateFacingFromInput(const FVector& Input);
+	void PlayLoopAnimation(UAnimSequence* Animation);
+	void HoldPoseAnimation(UAnimSequence* Animation, float PoseTime);
+	void PlayOneShotAnimation(UAnimSequence* Animation);
+	void PlayCurrentLoopAnimation();
 
 	UFUNCTION()
 	void HandleDeath(UZDHealthComponent* DeadHealthComponent);
 
 private:
 	FVector PendingMovementInput = FVector::ZeroVector;
+	FVector PendingLookInput = FVector::ZeroVector;
 	FVector LastFacingDirection = FVector::ForwardVector;
 	bool bBlockInputHeld = false;
 	bool bIsBlocking = false;
 	bool bWantsAttackChain = false;
+	UPROPERTY()
+	UAnimSequence* ActiveAnimation = nullptr;
 	FTimerHandle AttackTimerHandle;
+	FTimerHandle AttackHitTimerHandle;
 	FTimerHandle CounterTimerHandle;
 	FTimerHandle HurtTimerHandle;
 };
-

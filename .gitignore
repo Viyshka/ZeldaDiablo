@@ -13,3 +13,7 @@ Saved/
 *.VC.db
 *.VC.opendb
 
+# Local Fab/Marketplace asset packs. Keep these on the developer machine only.
+/Content/FreeAnimsMixPack/
+/Content/FreeSampleAnimationSet/
+/Content/RamsterZ_FreeAnims_Volume1/

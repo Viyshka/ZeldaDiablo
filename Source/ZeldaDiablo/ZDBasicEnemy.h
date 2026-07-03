@@ -6,6 +6,9 @@
 #include "ZDBasicEnemy.generated.h"
 
 class AZDPlayerCharacter;
+class UAnimSequence;
+class UMaterialInstanceDynamic;
+class USkeletalMesh;
 class UStaticMeshComponent;
 class UZDHealthComponent;
 
@@ -25,6 +28,42 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UStaticMeshComponent* PrototypeMesh = nullptr;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UStaticMeshComponent* StateMarkerMesh = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals")
+	USkeletalMesh* CharacterMeshAsset = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* IdleAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* ChaseAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* WindupAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* AttackAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* HurtAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation")
+	UAnimSequence* DeathAnimation = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation", meta = (ClampMin = "0.0"))
+	float IdlePoseTime = 0.08f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Animation", meta = (ClampMin = "0.0"))
+	float WindupPoseTime = 0.34f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Readability")
+	bool bShowStateMarker = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visuals|Readability", meta = (ClampMin = "0.1"))
+	float StateMarkerScale = 1.35f;
+
 	UPROPERTY(BlueprintReadOnly, Category = "AI")
 	EZDEnemyState EnemyState = EZDEnemyState::Idle;
 
@@ -36,6 +75,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI", meta = (ClampMin = "0.0"))
 	float TurnSpeed = 720.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	bool bUseDirectChaseMovement = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI", meta = (ClampMin = "0.0"))
+	float DirectChaseStopDistance = 115.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
 	float AttackDamage = 1.0f;
@@ -51,6 +96,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
 	float AttackRecovery = 0.4f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
+	float AttackHitDelay = 0.12f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
 	float TimeBetweenAttacks = 0.75f;
@@ -87,9 +135,18 @@ protected:
 	void EnterHurtState();
 	void FinishHurtState();
 	void FacePlayer(float DeltaSeconds);
+	void MoveTowardPlayer(float DeltaSeconds);
 	bool IsPlayerInRange(float Range) const;
+	float GetDistanceToPlayer2D() const;
 	bool IsPlayerInAttackCone() const;
 	void InterruptCurrentAction();
+	void ConfigureVisuals();
+	void PlayLoopAnimation(UAnimSequence* Animation);
+	void HoldPoseAnimation(UAnimSequence* Animation, float PoseTime);
+	void PlayOneShotAnimation(UAnimSequence* Animation);
+	void PlayCurrentLoopAnimation();
+	void UpdateStateMarker();
+	void SetStateMarkerColor(const FLinearColor& MarkerColor, bool bVisible);
 
 	UFUNCTION()
 	void HandleDeath(UZDHealthComponent* DeadHealthComponent);
@@ -100,9 +157,13 @@ private:
 
 	bool bHasDetectedPlayer = false;
 	bool bAttackOnCooldown = false;
+	UPROPERTY()
+	UAnimSequence* ActiveAnimation = nullptr;
+	UPROPERTY()
+	UMaterialInstanceDynamic* StateMarkerMaterial = nullptr;
 	FTimerHandle WindupTimerHandle;
 	FTimerHandle AttackTimerHandle;
+	FTimerHandle AttackHitTimerHandle;
 	FTimerHandle AttackCooldownTimerHandle;
 	FTimerHandle HurtTimerHandle;
 };
-

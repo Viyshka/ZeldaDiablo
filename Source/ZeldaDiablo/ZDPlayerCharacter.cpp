@@ -2,8 +2,11 @@
 
 #include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimSequence.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "TimerManager.h"
@@ -37,6 +40,39 @@ AZDPlayerCharacter::AZDPlayerCharacter()
 	{
 		PrototypeMesh->SetStaticMesh(CubeMesh.Object);
 	}
+
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MannyMesh(TEXT("/Game/FreeAnimsMixPack/Demo/Mannequins/Meshes/SKM_Manny.SKM_Manny"));
+	if (MannyMesh.Succeeded())
+	{
+		CharacterMeshAsset = MannyMesh.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> PracticeFencingAnim(TEXT("/Game/FreeAnimsMixPack/Animation/AS_PracticeFencing.AS_PracticeFencing"));
+	if (PracticeFencingAnim.Succeeded())
+	{
+		IdleAnimation = PracticeFencingAnim.Object;
+		BlockAnimation = PracticeFencingAnim.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> SwingSwordAnim(TEXT("/Game/FreeAnimsMixPack/Animation/AS_SwingSword.AS_SwingSword"));
+	if (SwingSwordAnim.Succeeded())
+	{
+		BasicAttackAnimation = SwingSwordAnim.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> ComboAnim(TEXT("/Game/FreeAnimsMixPack/Animation/AS_Combo.AS_Combo"));
+	if (ComboAnim.Succeeded())
+	{
+		CounterAttackAnimation = ComboAnim.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> DyingAnim(TEXT("/Game/FreeAnimsMixPack/Animation/AS_DyingFromWounds.AS_DyingFromWounds"));
+	if (DyingAnim.Succeeded())
+	{
+		DeathAnimation = DyingAnim.Object;
+	}
+
+	ConfigureVisuals();
 }
 
 void AZDPlayerCharacter::BeginPlay()
@@ -47,6 +83,9 @@ void AZDPlayerCharacter::BeginPlay()
 	{
 		HealthComponent->OnDeath.AddDynamic(this, &AZDPlayerCharacter::HandleDeath);
 	}
+
+	ConfigureVisuals();
+	PlayCurrentLoopAnimation();
 }
 
 void AZDPlayerCharacter::Tick(float DeltaSeconds)
@@ -56,15 +95,23 @@ void AZDPlayerCharacter::Tick(float DeltaSeconds)
 	const float DesiredSpeed = bIsBlocking ? MovementSpeed * BlockingMovementMultiplier : MovementSpeed;
 	GetCharacterMovement()->MaxWalkSpeed = DesiredSpeed;
 
-	if (CanMove() && !PendingMovementInput.IsNearlyZero())
+	const bool bHasMovementInput = HasDirectionalInput(PendingMovementInput);
+
+	if (CombatState != EZDPlayerCombatState::Attacking
+		&& CombatState != EZDPlayerCombatState::CounterAttacking
+		&& CombatState != EZDPlayerCombatState::Hurt
+		&& CombatState != EZDPlayerCombatState::Dead)
+	{
+		UpdateFacingFromInput(PendingLookInput);
+	}
+
+	if (CanMove() && bHasMovementInput)
 	{
 		FVector MoveDirection = PendingMovementInput;
 		MoveDirection.Z = 0.0f;
 		MoveDirection.Normalize();
 
 		AddMovementInput(MoveDirection);
-		LastFacingDirection = MoveDirection;
-		SetActorRotation(MoveDirection.Rotation());
 	}
 
 	if (CombatState != EZDPlayerCombatState::Attacking
@@ -78,8 +125,10 @@ void AZDPlayerCharacter::Tick(float DeltaSeconds)
 		}
 		else
 		{
-			CombatState = PendingMovementInput.IsNearlyZero() ? EZDPlayerCombatState::Idle : EZDPlayerCombatState::Moving;
+			CombatState = bHasMovementInput ? EZDPlayerCombatState::Moving : EZDPlayerCombatState::Idle;
 		}
+
+		PlayCurrentLoopAnimation();
 	}
 }
 
@@ -89,6 +138,8 @@ void AZDPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 	PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &AZDPlayerCharacter::MoveForward);
 	PlayerInputComponent->BindAxis(TEXT("MoveRight"), this, &AZDPlayerCharacter::MoveRight);
+	PlayerInputComponent->BindAxis(TEXT("LookForward"), this, &AZDPlayerCharacter::LookForward);
+	PlayerInputComponent->BindAxis(TEXT("LookRight"), this, &AZDPlayerCharacter::LookRight);
 	PlayerInputComponent->BindAction(TEXT("BasicAttack"), IE_Pressed, this, &AZDPlayerCharacter::HandleAttackPressed);
 	PlayerInputComponent->BindAction(TEXT("BasicAttack"), IE_Released, this, &AZDPlayerCharacter::HandleAttackReleased);
 	PlayerInputComponent->BindAction(TEXT("Block"), IE_Pressed, this, &AZDPlayerCharacter::HandleBlockPressed);
@@ -103,6 +154,16 @@ void AZDPlayerCharacter::MoveForward(float Value)
 void AZDPlayerCharacter::MoveRight(float Value)
 {
 	PendingMovementInput.Y = Value;
+}
+
+void AZDPlayerCharacter::LookForward(float Value)
+{
+	PendingLookInput.X = Value;
+}
+
+void AZDPlayerCharacter::LookRight(float Value)
+{
+	PendingLookInput.Y = Value;
 }
 
 void AZDPlayerCharacter::HandleAttackPressed()
@@ -141,6 +202,7 @@ void AZDPlayerCharacter::HandleBlockReleased()
 	if (CombatState == EZDPlayerCombatState::Blocking)
 	{
 		CombatState = EZDPlayerCombatState::Idle;
+		PlayCurrentLoopAnimation();
 	}
 }
 
@@ -180,6 +242,7 @@ void AZDPlayerCharacter::RefreshBlockState()
 	if (bIsBlocking)
 	{
 		CombatState = EZDPlayerCombatState::Blocking;
+		PlayCurrentLoopAnimation();
 	}
 }
 
@@ -187,8 +250,18 @@ void AZDPlayerCharacter::StartBasicAttack()
 {
 	bIsBlocking = false;
 	CombatState = EZDPlayerCombatState::Attacking;
+	PlayOneShotAnimation(BasicAttackAnimation);
 
-	ApplyBasicAttackDamage();
+	GetWorldTimerManager().ClearTimer(AttackHitTimerHandle);
+	const float HitDelay = FMath::Min(BasicAttackHitDelay, BasicAttackDuration);
+	if (HitDelay <= 0.0f)
+	{
+		ApplyBasicAttackDamage();
+	}
+	else
+	{
+		GetWorldTimerManager().SetTimer(AttackHitTimerHandle, this, &AZDPlayerCharacter::ApplyBasicAttackDamage, HitDelay, false);
+	}
 
 	const float TotalAttackTime = BasicAttackDuration + BasicAttackRecovery;
 	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AZDPlayerCharacter::FinishBasicAttack, TotalAttackTime, false);
@@ -203,6 +276,7 @@ void AZDPlayerCharacter::FinishBasicAttack()
 
 	CombatState = EZDPlayerCombatState::Idle;
 	RefreshBlockState();
+	PlayCurrentLoopAnimation();
 
 	if (bHoldAttackChains && bWantsAttackChain && CanStartCombatAction())
 	{
@@ -248,6 +322,7 @@ bool AZDPlayerCharacter::TryStartCounterAttack()
 
 	bIsBlocking = false;
 	CombatState = EZDPlayerCombatState::CounterAttacking;
+	PlayOneShotAnimation(CounterAttackAnimation);
 
 	TargetEnemy->KillByCounterAttack(this);
 	GetWorldTimerManager().SetTimer(CounterTimerHandle, this, &AZDPlayerCharacter::FinishCounterAttack, CounterLockDuration, false);
@@ -263,6 +338,7 @@ void AZDPlayerCharacter::FinishCounterAttack()
 
 	CombatState = EZDPlayerCombatState::Idle;
 	RefreshBlockState();
+	PlayCurrentLoopAnimation();
 }
 
 AZDBasicEnemy* AZDPlayerCharacter::FindCounterTarget() const
@@ -340,7 +416,9 @@ void AZDPlayerCharacter::EnterHurtState()
 {
 	bIsBlocking = false;
 	CombatState = EZDPlayerCombatState::Hurt;
+	PlayOneShotAnimation(HurtAnimation);
 	GetWorldTimerManager().ClearTimer(AttackTimerHandle);
+	GetWorldTimerManager().ClearTimer(AttackHitTimerHandle);
 	GetWorldTimerManager().ClearTimer(CounterTimerHandle);
 	GetWorldTimerManager().SetTimer(HurtTimerHandle, this, &AZDPlayerCharacter::FinishHurtState, HurtDuration, false);
 }
@@ -354,6 +432,7 @@ void AZDPlayerCharacter::FinishHurtState()
 
 	CombatState = EZDPlayerCombatState::Idle;
 	RefreshBlockState();
+	PlayCurrentLoopAnimation();
 }
 
 void AZDPlayerCharacter::HandleDeath(UZDHealthComponent* DeadHealthComponent)
@@ -361,7 +440,112 @@ void AZDPlayerCharacter::HandleDeath(UZDHealthComponent* DeadHealthComponent)
 	bIsBlocking = false;
 	bBlockInputHeld = false;
 	CombatState = EZDPlayerCombatState::Dead;
+	PlayOneShotAnimation(DeathAnimation);
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	GetCharacterMovement()->DisableMovement();
 }
 
+void AZDPlayerCharacter::ConfigureVisuals()
+{
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return;
+	}
+
+	if (CharacterMeshAsset)
+	{
+		MeshComponent->SetSkeletalMesh(CharacterMeshAsset);
+		MeshComponent->SetRelativeLocation(FVector(0.0f, 0.0f, -88.0f));
+		MeshComponent->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
+		MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		MeshComponent->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+
+		if (PrototypeMesh)
+		{
+			PrototypeMesh->SetVisibility(false);
+			PrototypeMesh->SetHiddenInGame(true);
+		}
+	}
+}
+
+bool AZDPlayerCharacter::HasDirectionalInput(const FVector& Input) const
+{
+	return Input.SizeSquared2D() > FMath::Square(InputDeadZone);
+}
+
+void AZDPlayerCharacter::UpdateFacingFromInput(const FVector& Input)
+{
+	if (!HasDirectionalInput(Input))
+	{
+		return;
+	}
+
+	FVector FacingDirection = Input;
+	FacingDirection.Z = 0.0f;
+	FacingDirection.Normalize();
+
+	LastFacingDirection = FacingDirection;
+	SetActorRotation(FacingDirection.Rotation());
+}
+
+void AZDPlayerCharacter::PlayLoopAnimation(UAnimSequence* Animation)
+{
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!Animation || !MeshComponent || ActiveAnimation == Animation)
+	{
+		return;
+	}
+
+	MeshComponent->PlayAnimation(Animation, true);
+	MeshComponent->SetPlayRate(1.0f);
+	ActiveAnimation = Animation;
+}
+
+void AZDPlayerCharacter::HoldPoseAnimation(UAnimSequence* Animation, float PoseTime)
+{
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!Animation || !MeshComponent)
+	{
+		return;
+	}
+
+	if (ActiveAnimation != Animation)
+	{
+		MeshComponent->PlayAnimation(Animation, false);
+		ActiveAnimation = Animation;
+	}
+
+	MeshComponent->SetPlayRate(0.0f);
+	MeshComponent->SetPosition(FMath::Clamp(PoseTime, 0.0f, Animation->GetPlayLength()), false);
+}
+
+void AZDPlayerCharacter::PlayOneShotAnimation(UAnimSequence* Animation)
+{
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!Animation || !MeshComponent)
+	{
+		return;
+	}
+
+	MeshComponent->PlayAnimation(Animation, false);
+	MeshComponent->SetPlayRate(1.0f);
+	ActiveAnimation = Animation;
+}
+
+void AZDPlayerCharacter::PlayCurrentLoopAnimation()
+{
+	if (CombatState == EZDPlayerCombatState::Blocking && BlockAnimation)
+	{
+		HoldPoseAnimation(BlockAnimation, BlockPoseTime);
+		return;
+	}
+
+	if (CombatState == EZDPlayerCombatState::Moving && MovementAnimation)
+	{
+		PlayLoopAnimation(MovementAnimation);
+		return;
+	}
+
+	HoldPoseAnimation(IdleAnimation, IdlePoseTime);
+}
