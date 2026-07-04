@@ -12,6 +12,7 @@ Unreal Engine 5.7 C++ prototype for a top-down combat game inspired by Zelda-sty
 - Block on gamepad LT.
 - Movement and facing are independent; regular attacks and block use the current facing direction.
 - Counterattack while blocking against an enemy in windup.
+- A placed `AZDPlayerCharacter` Blueprint in the level is possessed on play; the C++ default pawn is only a fallback.
 - Basic enemy state machine: idle, chase, windup, attack, hurt, death.
 - Tunable values exposed through C++ properties for Blueprint/editor iteration.
 

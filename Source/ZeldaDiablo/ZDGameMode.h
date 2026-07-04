@@ -12,9 +12,13 @@ class ZELDADIABLO_API AZDGameMode : public AGameModeBase
 public:
 	AZDGameMode();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
+	bool bUsePlacedPlayerCharacter = true;
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void RestartPlayer(AController* NewPlayer) override;
 
 	void EnsurePrototypeActors();
+	class AZDPlayerCharacter* FindPlacedPlayerCharacter(AController* ForController) const;
 };
-

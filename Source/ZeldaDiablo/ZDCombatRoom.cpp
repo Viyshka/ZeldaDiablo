@@ -51,7 +51,10 @@ void AZDCombatRoom::BeginPlay()
 {
 	Super::BeginPlay();
 
-	MovePlayerToSpawn();
+	if (bMovePlayerToSpawnOnBeginPlay)
+	{
+		MovePlayerToSpawn();
+	}
 
 	if (bSpawnEnemiesOnBeginPlay)
 	{
@@ -135,4 +138,3 @@ FVector AZDCombatRoom::GetEnemySpawnLocation(int32 SpawnIndex) const
 	const float StartY = -StepY * FMath::Max(0, EnemyCount - 1) * 0.5f;
 	return FVector(RoomWidth * 0.22f, StartY + StepY * SpawnIndex, 100.0f);
 }
-

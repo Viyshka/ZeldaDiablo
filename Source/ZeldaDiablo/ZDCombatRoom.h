@@ -50,6 +50,9 @@ public:
 	FVector PlayerSpawnLocation = FVector(-650.0f, 0.0f, 100.0f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
+	bool bMovePlayerToSpawnOnBeginPlay = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
 	TSubclassOf<AZDBasicEnemy> EnemyClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning", meta = (ClampMin = "0"))
@@ -70,4 +73,3 @@ protected:
 	void SpawnEnemies();
 	FVector GetEnemySpawnLocation(int32 SpawnIndex) const;
 };
-

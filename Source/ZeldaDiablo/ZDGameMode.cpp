@@ -1,5 +1,6 @@
 #include "ZDGameMode.h"
 
+#include "GameFramework/Controller.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "ZDCombatCameraActor.h"
@@ -15,6 +16,25 @@ void AZDGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 	EnsurePrototypeActors();
+}
+
+void AZDGameMode::RestartPlayer(AController* NewPlayer)
+{
+	if (bUsePlacedPlayerCharacter && NewPlayer)
+	{
+		if (APawn* CurrentPawn = NewPlayer->GetPawn())
+		{
+			return;
+		}
+
+		if (AZDPlayerCharacter* PlacedPlayer = FindPlacedPlayerCharacter(NewPlayer))
+		{
+			NewPlayer->Possess(PlacedPlayer);
+			return;
+		}
+	}
+
+	Super::RestartPlayer(NewPlayer);
 }
 
 void AZDGameMode::EnsurePrototypeActors()
@@ -53,3 +73,44 @@ void AZDGameMode::EnsurePrototypeActors()
 	}
 }
 
+AZDPlayerCharacter* AZDGameMode::FindPlacedPlayerCharacter(AController* ForController) const
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	AZDPlayerCharacter* FirstAvailablePlayer = nullptr;
+
+	for (TActorIterator<AZDPlayerCharacter> PlayerIterator(World); PlayerIterator; ++PlayerIterator)
+	{
+		AZDPlayerCharacter* PlayerCharacter = *PlayerIterator;
+		if (!PlayerCharacter || PlayerCharacter->IsPendingKillPending())
+		{
+			continue;
+		}
+
+		if (PlayerCharacter->GetController() == ForController)
+		{
+			return PlayerCharacter;
+		}
+
+		if (PlayerCharacter->GetController())
+		{
+			continue;
+		}
+
+		if (!FirstAvailablePlayer)
+		{
+			FirstAvailablePlayer = PlayerCharacter;
+		}
+
+		if (PlayerCharacter->AutoPossessPlayer == EAutoReceiveInput::Player0)
+		{
+			return PlayerCharacter;
+		}
+	}
+
+	return FirstAvailablePlayer;
+}

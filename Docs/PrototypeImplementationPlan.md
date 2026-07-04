@@ -17,6 +17,7 @@ This file converts the current design documents into the first C++ vertical slic
 - All key tuning values exposed as `UPROPERTY(EditAnywhere, BlueprintReadWrite)`.
 - Input mappings: gamepad left stick movement, right stick facing, X attack, LT block.
 - Movement and facing are independent; regular attacks and block do not stop movement.
+- Placed player Blueprint actors are possessed on play before spawning a fallback pawn.
 - Basic combat cone checks for attack, block and counterattack.
 
 ## Next likely work
