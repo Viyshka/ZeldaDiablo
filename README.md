@@ -10,6 +10,7 @@ Unreal Engine 5.7 C++ prototype for a top-down combat game inspired by Zelda-sty
 - Gamepad right stick facing direction.
 - Basic attack on gamepad X.
 - Block on gamepad LT.
+- Movement and facing are independent; regular attacks and block use the current facing direction.
 - Counterattack while blocking against an enemy in windup.
 - Basic enemy state machine: idle, chase, windup, attack, hurt, death.
 - Tunable values exposed through C++ properties for Blueprint/editor iteration.

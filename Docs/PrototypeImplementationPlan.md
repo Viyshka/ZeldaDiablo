@@ -16,6 +16,7 @@ This file converts the current design documents into the first C++ vertical slic
 - Enemy states: idle, chasing, windup, attacking, hurt, dead.
 - All key tuning values exposed as `UPROPERTY(EditAnywhere, BlueprintReadWrite)`.
 - Input mappings: gamepad left stick movement, right stick facing, X attack, LT block.
+- Movement and facing are independent; regular attacks and block do not stop movement.
 - Basic combat cone checks for attack, block and counterattack.
 
 ## Next likely work

@@ -71,7 +71,13 @@ public:
 	bool bCanMoveWhileBlocking = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float InputDeadZone = 0.15f;
+	float MovementInputDeadZone = 0.15f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aim", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float LookInputDeadZone = 0.15f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aim", meta = (ClampMin = "0.0"))
+	float FacingRotationSpeed = 720.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
 	float BasicAttackDamage = 1.0f;
@@ -144,8 +150,10 @@ protected:
 	void EnterHurtState();
 	void FinishHurtState();
 	void ConfigureVisuals();
-	bool HasDirectionalInput(const FVector& Input) const;
-	void UpdateFacingFromInput(const FVector& Input);
+	bool HasDirectionalInput(const FVector& Input, float DeadZone) const;
+	bool CanUpdateFacing() const;
+	void UpdateDesiredFacingFromInput(const FVector& Input);
+	void ApplyFacingRotation(float DeltaSeconds);
 	void PlayLoopAnimation(UAnimSequence* Animation);
 	void HoldPoseAnimation(UAnimSequence* Animation, float PoseTime);
 	void PlayOneShotAnimation(UAnimSequence* Animation);
@@ -157,6 +165,7 @@ protected:
 private:
 	FVector PendingMovementInput = FVector::ZeroVector;
 	FVector PendingLookInput = FVector::ZeroVector;
+	FVector DesiredFacingDirection = FVector::ForwardVector;
 	FVector LastFacingDirection = FVector::ForwardVector;
 	bool bBlockInputHeld = false;
 	bool bIsBlocking = false;

@@ -95,23 +95,22 @@ void AZDPlayerCharacter::Tick(float DeltaSeconds)
 	const float DesiredSpeed = bIsBlocking ? MovementSpeed * BlockingMovementMultiplier : MovementSpeed;
 	GetCharacterMovement()->MaxWalkSpeed = DesiredSpeed;
 
-	const bool bHasMovementInput = HasDirectionalInput(PendingMovementInput);
+	const bool bHasMovementInput = HasDirectionalInput(PendingMovementInput, MovementInputDeadZone);
 
-	if (CombatState != EZDPlayerCombatState::Attacking
-		&& CombatState != EZDPlayerCombatState::CounterAttacking
-		&& CombatState != EZDPlayerCombatState::Hurt
-		&& CombatState != EZDPlayerCombatState::Dead)
+	if (CanUpdateFacing())
 	{
-		UpdateFacingFromInput(PendingLookInput);
+		UpdateDesiredFacingFromInput(PendingLookInput);
+		ApplyFacingRotation(DeltaSeconds);
 	}
 
 	if (CanMove() && bHasMovementInput)
 	{
 		FVector MoveDirection = PendingMovementInput;
 		MoveDirection.Z = 0.0f;
+		const float MoveScale = FMath::Clamp(MoveDirection.Size2D(), 0.0f, 1.0f);
 		MoveDirection.Normalize();
 
-		AddMovementInput(MoveDirection);
+		AddMovementInput(MoveDirection, MoveScale);
 	}
 
 	if (CombatState != EZDPlayerCombatState::Attacking
@@ -209,7 +208,6 @@ void AZDPlayerCharacter::HandleBlockReleased()
 bool AZDPlayerCharacter::CanMove() const
 {
 	if (!IsAlive()
-		|| CombatState == EZDPlayerCombatState::Attacking
 		|| CombatState == EZDPlayerCombatState::CounterAttacking
 		|| CombatState == EZDPlayerCombatState::Hurt)
 	{
@@ -469,14 +467,21 @@ void AZDPlayerCharacter::ConfigureVisuals()
 	}
 }
 
-bool AZDPlayerCharacter::HasDirectionalInput(const FVector& Input) const
+bool AZDPlayerCharacter::HasDirectionalInput(const FVector& Input, float DeadZone) const
 {
-	return Input.SizeSquared2D() > FMath::Square(InputDeadZone);
+	return Input.SizeSquared2D() > FMath::Square(DeadZone);
 }
 
-void AZDPlayerCharacter::UpdateFacingFromInput(const FVector& Input)
+bool AZDPlayerCharacter::CanUpdateFacing() const
 {
-	if (!HasDirectionalInput(Input))
+	return IsAlive()
+		&& CombatState != EZDPlayerCombatState::CounterAttacking
+		&& CombatState != EZDPlayerCombatState::Hurt;
+}
+
+void AZDPlayerCharacter::UpdateDesiredFacingFromInput(const FVector& Input)
+{
+	if (!HasDirectionalInput(Input, LookInputDeadZone))
 	{
 		return;
 	}
@@ -485,8 +490,24 @@ void AZDPlayerCharacter::UpdateFacingFromInput(const FVector& Input)
 	FacingDirection.Z = 0.0f;
 	FacingDirection.Normalize();
 
-	LastFacingDirection = FacingDirection;
-	SetActorRotation(FacingDirection.Rotation());
+	DesiredFacingDirection = FacingDirection;
+}
+
+void AZDPlayerCharacter::ApplyFacingRotation(float DeltaSeconds)
+{
+	if (DesiredFacingDirection.IsNearlyZero())
+	{
+		return;
+	}
+
+	const FRotator CurrentRotation = GetActorRotation();
+	const FRotator DesiredRotation = DesiredFacingDirection.Rotation();
+	const FRotator NewRotation = FacingRotationSpeed <= 0.0f
+		? DesiredRotation
+		: FMath::RInterpConstantTo(CurrentRotation, DesiredRotation, DeltaSeconds, FacingRotationSpeed);
+
+	SetActorRotation(NewRotation);
+	LastFacingDirection = NewRotation.Vector().GetSafeNormal2D();
 }
 
 void AZDPlayerCharacter::PlayLoopAnimation(UAnimSequence* Animation)
