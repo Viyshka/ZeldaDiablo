@@ -157,12 +157,12 @@ void AZDPlayerCharacter::MoveRight(float Value)
 
 void AZDPlayerCharacter::LookForward(float Value)
 {
-	PendingLookInput.X = Value;
+	PendingLookInput.X = bInvertLookForward ? -Value : Value;
 }
 
 void AZDPlayerCharacter::LookRight(float Value)
 {
-	PendingLookInput.Y = Value;
+	PendingLookInput.Y = bInvertLookRight ? -Value : Value;
 }
 
 void AZDPlayerCharacter::HandleAttackPressed()

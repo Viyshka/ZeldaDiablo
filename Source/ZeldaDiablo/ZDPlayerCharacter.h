@@ -79,6 +79,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aim", meta = (ClampMin = "0.0"))
 	float FacingRotationSpeed = 720.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aim")
+	bool bInvertLookForward = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aim")
+	bool bInvertLookRight = true;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0.0"))
 	float BasicAttackDamage = 1.0f;
 
